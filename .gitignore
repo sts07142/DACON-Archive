@@ -1,0 +1,4 @@
+Credit_score/catboost_info/*.*
+Credit_score/wandb/*.*
+Credit_score/catboost_info/
+Credit_score/wandb/
