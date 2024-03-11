@@ -34,11 +34,11 @@ def clean_data(script, data_type="dir"):
             lines = file.readlines()
             preproc_lines = []
             for line in lines:
-                if line.lstrip().startswith('#'):
+                if line.lstrip().startswith('//'):
                     continue
                 line = line.rstrip()
-                if '#' in line:
-                    line = line[:line.index('#')]
+                if '//' in line:
+                    line = line[:line.index('//')]
                 line = line.replace('\n', '')
                 line = line.replace('    ', '\t')
                 if line == '':
@@ -46,55 +46,89 @@ def clean_data(script, data_type="dir"):
                 preproc_lines.append(line)
 
     elif data_type == "file":
+        # Split the script into lines
         lines = script.split('\n')
         preproc_lines = []
         for line in lines:
-            if line.lstrip().startswith('#'):
+            # Skip lines that start with '#'
+            if line.lstrip().startswith('//'):
                 continue
             line = line.rstrip()
-            if '#' in line:
-                line = line[:line.index('#')]
+            # Remove comments after '#'
+            if '//' in line:
+                line = line[:line.index('//')]
             line = line.replace('\n', '')
             line = line.replace('    ', '\t')
+            # Skip empty lines
             if line == '':
                 continue
             preproc_lines.append(line)
 
+    # Join the preprocessed lines into a single string
     preprocessed_script = '\n'.join(preproc_lines)
-    preprocessed_script = re.sub('\"\"\"([^\"]*)\"\"\"', "", preprocessed_script)
-    preprocessed_script = re.sub('\'\'\'([^\"]*)\'\'\'', "", preprocessed_script)
+    
+    # # Remove triple double quotes and their contents
+    # preprocessed_script = re.sub('\"\"\"([^\"]*)\"\"\"', "", preprocessed_script)
+    
+    # # Remove triple single quotes and their contents
+    # preprocessed_script = re.sub('\'\'\'([^\"]*)\'\'\'', "", preprocessed_script)
+    
+    # Remove /* and */ and their contents
+    preprocessed_script = re.sub(r'/\*.*?\*/', "", preprocessed_script, flags=re.DOTALL)
+    
+    # Remove single quoted strings
     preprocessed_script = re.sub(r'\'\w+', '', preprocessed_script)
+    
+    # Remove alphanumeric words
     preprocessed_script = re.sub(r'\w*\d+\w*', '', preprocessed_script)
+    
+    # Replace multiple spaces with a single space
     preprocessed_script = re.sub(r'\s{2,}', ' ', preprocessed_script)
+    
+    # Remove spaces around non-word characters
     preprocessed_script = re.sub(r'\s[^\w\s]\s', '', preprocessed_script)
 
     ''' 극소수지만 데이터 몇개는 완성되지 않은 주석들이 있었습니다 '''
     splitted = preprocessed_script.split('\n')
+
     found_triple = False
     start_idx, end_idx = -1, -1
     for i in range(len(splitted)):
-        if found_triple == False and '\'\'\'' in splitted[i]:
+        if found_triple == False and '/*' in splitted[i]:
             found_triple = True
             start_idx = i
-        elif found_triple == True and '\'\'\'' in splitted[i]:
+        elif found_triple == True and '*/' in splitted[i]:
             end_idx = i
     if start_idx != -1 and end_idx != -1:
         splitted = splitted[:start_idx] + splitted[end_idx + 1:]
     elif start_idx != -1 and end_idx == -1:
         splitted = splitted[start_idx + 1:]
 
-    found_triple = False
-    start_idx, end_idx = -1, -1
-    for i in range(len(splitted)):
-        if found_triple == False and '\"\"\"' in splitted[i]:
-            found_triple = True
-            start_idx = i
-        elif found_triple == True and '\"\"\"' in splitted[i]:
-            end_idx = i
-    if start_idx != -1 and end_idx != -1:
-        splitted = splitted[:start_idx] + splitted[end_idx + 1:]
-    elif start_idx != -1 and end_idx == -1:
-        splitted = splitted[start_idx + 1:]
+    # found_triple = False
+    # start_idx, end_idx = -1, -1
+    # for i in range(len(splitted)):
+    #     if found_triple == False and '\'\'\'' in splitted[i]:
+    #         found_triple = True
+    #         start_idx = i
+    #     elif found_triple == True and '\'\'\'' in splitted[i]:
+    #         end_idx = i
+    # if start_idx != -1 and end_idx != -1:
+    #     splitted = splitted[:start_idx] + splitted[end_idx + 1:]
+    # elif start_idx != -1 and end_idx == -1:
+    #     splitted = splitted[start_idx + 1:]
+
+    # found_triple = False
+    # start_idx, end_idx = -1, -1
+    # for i in range(len(splitted)):
+    #     if found_triple == False and '\"\"\"' in splitted[i]:
+    #         found_triple = True
+    #         start_idx = i
+    #     elif found_triple == True and '\"\"\"' in splitted[i]:
+    #         end_idx = i
+    # if start_idx != -1 and end_idx != -1:
+    #     splitted = splitted[:start_idx] + splitted[end_idx + 1:]
+    # elif start_idx != -1 and end_idx == -1:
+    #     splitted = splitted[start_idx + 1:]
 
     preprocessed_script = '\n'.join(splitted)
     preprocessed_script = get_rid_of_empty(preprocessed_script)
@@ -163,7 +197,7 @@ def get_pairs(input_df, tokenizer):
     pair_data = pair_data.sample(frac=1).reset_index(drop=True)
     return pair_data
 
-def data_preprocess(args):
+def data_preprocess():
     """ Data preprocess
     train, valid, test에 대한 전처리를 수행하고, 이 과정에서 결과적으로 아래의 파일명이 생성됩니다."""
 
@@ -204,102 +238,102 @@ def data_preprocess(args):
         processed_code2.append(processed_c2)
     processed_test = pd.DataFrame(list(zip(processed_code1, processed_code2)), columns=["code1", "code2"])
 
-    # IBM의 CodeNet으로 추가 코드 학습/검증 데이터 데이터프레임 만들기
-    code_folder = "Project_CodeNet_Python800"  # CodeNet 데이터 경로
-    problem_folders = os.listdir(code_folder)
-    preproc_scripts = []
-    problem_nums = []
-    for problem_folder in tqdm(problem_folders):
-        scripts = os.listdir(os.path.join(code_folder, problem_folder))
-        problem_num = int(problem_folder.split('p')[1])
-        problem_num = 'problem' + str(problem_num)
-        for script in scripts:
-            script_file = os.path.join(code_folder, problem_folder, script)
-            preprocessed_script = clean_data(script_file)
-            preproc_scripts.append(preprocessed_script)
-        problem_nums.extend([problem_num] * len(scripts))
-    codenet_df = pd.DataFrame(data={'code': preproc_scripts, 'problem_num': problem_nums})
+    # # IBM의 CodeNet으로 추가 코드 학습/검증 데이터 데이터프레임 만들기
+    # code_folder = "Project_CodeNet_Python800"  # CodeNet 데이터 경로
+    # problem_folders = os.listdir(code_folder)
+    # preproc_scripts = []
+    # problem_nums = []
+    # for problem_folder in tqdm(problem_folders):
+    #     scripts = os.listdir(os.path.join(code_folder, problem_folder))
+    #     problem_num = int(problem_folder.split('p')[1])
+    #     problem_num = 'problem' + str(problem_num)
+    #     for script in scripts:
+    #         script_file = os.path.join(code_folder, problem_folder, script)
+    #         preprocessed_script = clean_data(script_file)
+    #         preproc_scripts.append(preprocessed_script)
+    #     problem_nums.extend([problem_num] * len(scripts))
+    # codenet_df = pd.DataFrame(data={'code': preproc_scripts, 'problem_num': problem_nums})
 
 
-    """ 추가 codenet 데이터에서 테스트셋과 겹치는 데이터가 있다는걸 관찰하였고, 이를 위해 3단계에 걸쳐 필터링 작업을 진행합니다.
+    # """ 추가 codenet 데이터에서 테스트셋과 겹치는 데이터가 있다는걸 관찰하였고, 이를 위해 3단계에 걸쳐 필터링 작업을 진행합니다.
 
-    [1차 필터링] : codenet_df에서 test_df의 데이터와 겹치는 녀석들을 set (hash table) 으로 대부분 필터링해줍니다.
-    [2차 필터링] : 1차 필터링 과정에서 trailing space 등의 이유로 set 방법으로 완전하게 걸러지지 않은 데이터를 걸러주는 것이 목적입니다. 이를 위해 코드 문자열에 존재하는 newline들을 전부 이어붙이고, 앞 뒤로 존재하는 공백 및 newline을 제거합니다. 이렇게 전처리된 test code 와 codenet code 문자열들을 각각 set에 넣어 intersection 함으로써 한번 더 걸러주는 작업을 수행합니다.
-    [3차 필터링] : 2차 필터링 과정 이후 test set에 포함된 데이터가 거의 다 제거되었습니다. 그러나 완벽히 제거하기 위해 exhaustive search를 통해 최종적으로 남아있는 test셋의 흔적들을 제거합니다.
-    """
+    # [1차 필터링] : codenet_df에서 test_df의 데이터와 겹치는 녀석들을 set (hash table) 으로 대부분 필터링해줍니다.
+    # [2차 필터링] : 1차 필터링 과정에서 trailing space 등의 이유로 set 방법으로 완전하게 걸러지지 않은 데이터를 걸러주는 것이 목적입니다. 이를 위해 코드 문자열에 존재하는 newline들을 전부 이어붙이고, 앞 뒤로 존재하는 공백 및 newline을 제거합니다. 이렇게 전처리된 test code 와 codenet code 문자열들을 각각 set에 넣어 intersection 함으로써 한번 더 걸러주는 작업을 수행합니다.
+    # [3차 필터링] : 2차 필터링 과정 이후 test set에 포함된 데이터가 거의 다 제거되었습니다. 그러나 완벽히 제거하기 위해 exhaustive search를 통해 최종적으로 남아있는 test셋의 흔적들을 제거합니다.
+    # """
 
-    # [1차 필터링]
-    dacon_codes = np.concatenate([train_df['code'].values,
-                                  test_df['code1'].values,
-                                  test_df['code2'].values]
-                                 )
-    dacon_codes_set = set()
+    # # [1차 필터링]
+    # dacon_codes = np.concatenate([train_df['code'].values,
+    #                               test_df['code1'].values,
+    #                               test_df['code2'].values]
+    #                              )
+    # dacon_codes_set = set()
 
-    for i in tqdm(range(len(dacon_codes))):
-        dacon_codes_set.add(dacon_codes[i])
-    usable_codes = []
-    usable_problem_nums = []
-    codenet_codes = codenet_df['code'].values
-    problem_nums = codenet_df['problem_num'].values
+    # for i in tqdm(range(len(dacon_codes))):
+    #     dacon_codes_set.add(dacon_codes[i])
+    # usable_codes = []
+    # usable_problem_nums = []
+    # codenet_codes = codenet_df['code'].values
+    # problem_nums = codenet_df['problem_num'].values
 
-    for i in tqdm(range(len(codenet_codes))):
-        if codenet_codes[i] not in dacon_codes_set:
-            usable_codes.append(codenet_codes[i])
-            usable_problem_nums.append(problem_nums[i])
-    filtered_codenet_df = pd.DataFrame(data={'code': usable_codes,
-                                             'problem_num': usable_problem_nums})
+    # for i in tqdm(range(len(codenet_codes))):
+    #     if codenet_codes[i] not in dacon_codes_set:
+    #         usable_codes.append(codenet_codes[i])
+    #         usable_problem_nums.append(problem_nums[i])
+    # filtered_codenet_df = pd.DataFrame(data={'code': usable_codes,
+    #                                          'problem_num': usable_problem_nums})
 
-    # 리소스 문제로, 완성된 filtered_codenet_df 중 50%의 데이터만을 이용해서 학습에 사용합니다.
-    filtered_codenet_df = filtered_codenet_df.sample(frac=0.5, random_state=42)
-
-
-    # [2차 필터링]
-    def simplify(x):
-        return ''.join(x.split('\n')).rstrip(' ').strip()
-
-    codenet_codes = filtered_codenet_df['code'].values
-    codenet_problem_nums = filtered_codenet_df['problem_num'].values
-    test_codes1 = test_df['code1'].values
-    test_codes2 = test_df['code2'].values
-
-    test_codes = np.concatenate([test_codes1, test_codes2])
-
-    codenet_set = set()
-
-    for i in tqdm(range(len(codenet_codes))):
-        codenet_set.add(simplify(codenet_codes[i]))
-    test_set = set()
-    for i in tqdm(range(len(test_codes))):
-        test_set.add(simplify(test_codes[i]))
-    intersection = codenet_set.intersection(test_set)
-    usable_codenet_filtered, usable_codenet_filtered_problems = [], []
-    for i in tqdm(range(len(codenet_codes))):
-        if simplify(codenet_codes[i]) not in intersection:
-            usable_codenet_filtered.append(codenet_codes[i])
-            usable_codenet_filtered_problems.append(codenet_problem_nums[i])
-    filtered_codenet_df = pd.DataFrame(data={'code': usable_codenet_filtered,
-                                             'problem_num': usable_codenet_filtered_problems})
+    # # 리소스 문제로, 완성된 filtered_codenet_df 중 50%의 데이터만을 이용해서 학습에 사용합니다.
+    # filtered_codenet_df = filtered_codenet_df.sample(frac=0.5, random_state=42)
 
 
-    # [3차 필터링]
-    codenet_codes = filtered_codenet_df['code'].values
-    problem_nums = filtered_codenet_df['problem_num'].values
-    usable_codenet_filtered, usable_codenet_filtered_problems = [], []
-    for i in tqdm(range(len(codenet_codes)), position=0, leave=True):
-        usable = True
-        if codenet_codes[i] in test_set:
-            continue
-        else:
-            for s in test_set:
-                if len(s) > 0 and len(codenet_codes[i]) > 0 and ((codenet_codes[i] in s) or (s in codenet_codes[i])):
-                    usable = False
-                    break
-        if usable == True:
-            usable_codenet_filtered.append(codenet_codes[i])
-            usable_codenet_filtered_problems.append(problem_nums[i])
+    # # [2차 필터링]
+    # def simplify(x):
+    #     return ''.join(x.split('\n')).rstrip(' ').strip()
 
-    filtered_codenet_df = pd.DataFrame(data={'code': usable_codenet_filtered,
-                                             'problem_num': usable_codenet_filtered_problems})
+    # codenet_codes = filtered_codenet_df['code'].values
+    # codenet_problem_nums = filtered_codenet_df['problem_num'].values
+    # test_codes1 = test_df['code1'].values
+    # test_codes2 = test_df['code2'].values
+
+    # test_codes = np.concatenate([test_codes1, test_codes2])
+
+    # codenet_set = set()
+
+    # for i in tqdm(range(len(codenet_codes))):
+    #     codenet_set.add(simplify(codenet_codes[i]))
+    # test_set = set()
+    # for i in tqdm(range(len(test_codes))):
+    #     test_set.add(simplify(test_codes[i]))
+    # intersection = codenet_set.intersection(test_set)
+    # usable_codenet_filtered, usable_codenet_filtered_problems = [], []
+    # for i in tqdm(range(len(codenet_codes))):
+    #     if simplify(codenet_codes[i]) not in intersection:
+    #         usable_codenet_filtered.append(codenet_codes[i])
+    #         usable_codenet_filtered_problems.append(codenet_problem_nums[i])
+    # filtered_codenet_df = pd.DataFrame(data={'code': usable_codenet_filtered,
+    #                                          'problem_num': usable_codenet_filtered_problems})
+
+
+    # # [3차 필터링]
+    # codenet_codes = filtered_codenet_df['code'].values
+    # problem_nums = filtered_codenet_df['problem_num'].values
+    # usable_codenet_filtered, usable_codenet_filtered_problems = [], []
+    # for i in tqdm(range(len(codenet_codes)), position=0, leave=True):
+    #     usable = True
+    #     if codenet_codes[i] in test_set:
+    #         continue
+    #     else:
+    #         for s in test_set:
+    #             if len(s) > 0 and len(codenet_codes[i]) > 0 and ((codenet_codes[i] in s) or (s in codenet_codes[i])):
+    #                 usable = False
+    #                 break
+    #     if usable == True:
+    #         usable_codenet_filtered.append(codenet_codes[i])
+    #         usable_codenet_filtered_problems.append(problem_nums[i])
+
+    # filtered_codenet_df = pd.DataFrame(data={'code': usable_codenet_filtered,
+    #                                          'problem_num': usable_codenet_filtered_problems})
 
 
     # 데이터 프레임을 만들었으니 이제 train/val split을 진행하고, positive, negative pairs를 생성합니다.
@@ -310,51 +344,50 @@ def data_preprocess(args):
     dacon_train_df, dacon_valid_df, dacon_train_label, dacon_valid_label = train_test_split(
         train_df,
         train_df['problem_num'],
-        random_state=args.seed,
-        test_size=0.1,
-        stratify=filtered_codenet_df['problem_num']
+        random_state=42,
+        test_size=0.1
     )
 
     dacon_train_df = dacon_train_df.reset_index(drop=True)
     dacon_valid_df = dacon_valid_df.reset_index(drop=True)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.checkpoint_path)
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/graphcodebert-base")
     tokenizer.truncation_side = 'left'
 
     dacon_train_bm25L = get_pairs(dacon_train_df, tokenizer)
     dacon_valid_bm25L = get_pairs(dacon_valid_df, tokenizer)
 
     # 생성된 데이터를 저장합니다. => 이 과정까지의 생성 시간이 꽤 오래걸립니다.
-    dacon_train_bm25L.to_csv("./data/" + "new_dataset_0607/graph_dacon_train_bm25L.csv", index=False)
-    dacon_valid_bm25L.to_csv("./data/" + "new_dataset_0607/graph_dacon_valid_bm25L.csv", index=False)
-    processed_test.to_csv("./data/new_dataset_0604/processed_test.csv", index=False)
+    dacon_train_bm25L.to_csv("./data/graph_dacon_train_bm25L.csv", index=False)
+    dacon_valid_bm25L.to_csv("./data/graph_dacon_valid_bm25L.csv", index=False)
+    processed_test.to_csv("./data/processed_test.csv", index=False)
 
-    codenet_train_df, codenet_valid_df, codenet_train_label, codenet_valid_label = train_test_split(
-        filtered_codenet_df,
-        filtered_codenet_df['problem_num'],
-        random_state=args.seed,
-        test_size=0.1,
-        stratify=filtered_codenet_df['problem_num']
-    )
-    codenet_train_df = codenet_train_df.reset_index(drop=True)
-    codenet_valid_df = codenet_valid_df.reset_index(drop=True)
+    # codenet_train_df, codenet_valid_df, codenet_train_label, codenet_valid_label = train_test_split(
+    #     filtered_codenet_df,
+    #     filtered_codenet_df['problem_num'],
+    #     random_state=42,
+    #     test_size=0.1,
+    #     stratify=filtered_codenet_df['problem_num']
+    # )
+    # codenet_train_df = codenet_train_df.reset_index(drop=True)
+    # codenet_valid_df = codenet_valid_df.reset_index(drop=True)
 
-    codenet_train_bm25L = get_pairs(codenet_train_df, tokenizer)
-    codenet_valid_bm25L = get_pairs(codenet_valid_df, tokenizer)
+    # codenet_train_bm25L = get_pairs(codenet_train_df, tokenizer)
+    # codenet_valid_bm25L = get_pairs(codenet_valid_df, tokenizer)
 
     # 생성된 데이터를 저장합니다.
-    codenet_train_bm25L.to_csv("./data/" + "new_dataset_0607/graph_codenet_train_bm25L.csv",
-                               index=False)
-    codenet_valid_bm25L.to_csv("./data/" + "new_dataset_0607/graph_codenet_valid_bm25L.csv",
-                               index=False)
+    # codenet_train_bm25L.to_csv("./data/" + "new_dataset_0607/graph_codenet_train_bm25L.csv",
+    #                            index=False)
+    # codenet_valid_bm25L.to_csv("./data/" + "new_dataset_0607/graph_codenet_valid_bm25L.csv",
+    #                            index=False)
 
 
-def set_seed(args):
-    random.seed(args.seed)
-    os.environ['PYTHONHASHSEED'] = str(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
+def set_seed():
+    random.seed(42)
+    os.environ['PYTHONHASHSEED'] = str(42)
+    np.random.seed(42)
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
 
 
 
@@ -389,21 +422,24 @@ def train_model(args):
         --dir_path graphcodebert
         --model_name graphcodebert
         --process_name code_similarity
-        --checkpoint_path microsoft/graphcodebert-base
+        --checkpoint_path "microsoft/graphcodebert-base"
     :return: X
     """
 
-    set_seed(args)
-    setproctitle(args.process_name)
+    set_seed()
+    # setproctitle(args.process_name)
 
-    dacon_train_data = pd.read_csv("./data/" + "new_dataset_0607/graph_dacon_train_bm25L.csv")
-    dacon_valid_data = pd.read_csv("./data/" + "new_dataset_0607/graph_dacon_valid_bm25L.csv")
+    dacon_train_data = pd.read_csv("./data/graph_dacon_train_bm25L.csv")
+    dacon_valid_data = pd.read_csv("./data/graph_dacon_valid_bm25L.csv")
 
-    codenet_train_data = pd.read_csv("./data/" + "new_dataset_0607/graph_codenet_train_bm25L.csv")
-    codenet_valid_data = pd.read_csv("./data/" + "new_dataset_0607/graph_codenet_valid_bm25L.csv")
+    # codenet_train_data = pd.read_csv("./data/graph_codenet_train_bm25L.csv")
+    # codenet_valid_data = pd.read_csv("./data/graph_codenet_valid_bm25L.csv")
 
-    train_data = pd.concat([dacon_train_data, codenet_train_data], axis=0)
-    valid_data = pd.concat([dacon_valid_data, codenet_valid_data], axis=0)
+    # train_data = pd.concat([dacon_train_data, codenet_train_data], axis=0)
+    # valid_data = pd.concat([dacon_valid_data, codenet_valid_data], axis=0)
+
+    train_data = dacon_train_data
+    valid_data = dacon_valid_data
 
     # training
     c1 = train_data['code1'].values
@@ -417,7 +453,7 @@ def train_model(args):
     attention_masks = np.zeros((N, MAX_LEN), dtype=int)
     labels = np.zeros((N), dtype=int)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.checkpoint_path)
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/graphcodebert-base")
 
     for i in tqdm(range(N), position=0, leave=True):
         try:
@@ -494,13 +530,13 @@ def train_model(args):
 
     train_data = TensorDataset(input_ids, attention_masks, labels)
     train_sampler = RandomSampler(train_data)
-    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.batch_size)
+    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=32)
 
     validation_data = TensorDataset(valid_input_ids, valid_attention_masks, valid_labels)
     validation_sampler = SequentialSampler(validation_data)
-    validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=args.batch_size)
+    validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=32)
 
-    model = AutoModelForSequenceClassification.from_pretrained(args.checkpoint_path)
+    model = AutoModelForSequenceClassification.from_pretrained("microsoft/graphcodebert-base")
     model.cuda()
 
     optimizer = AdamW(model.parameters(), lr=args.learning_rate, eps=1e-5)  # 아직 이게 정확하지 않음
@@ -596,7 +632,7 @@ def inference_model(args):
     test_input_ids = np.zeros((N, MAX_LEN), dtype=int)
     test_attention_masks = np.zeros((N, MAX_LEN), dtype=int)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.checkpoint_path)
+    tokenizer = AutoTokenizer.from_pretrained("microsoft/graphcodebert-base")
     tokenizer.truncation_side = "left"
 
     for i in tqdm(range(N), position=0, leave=True):
@@ -619,7 +655,7 @@ def inference_model(args):
         torch.save(test_input_ids, "./data/" + args.dir_path + "/" + "test_input_ids_0605.pt")
         torch.save(test_attention_masks, "./data/" + args.dir_path + "/" + "test_attention_masks_0605.pt")
 
-    model = AutoModelForSequenceClassification.from_pretrained(args.checkpoint_path)
+    model = AutoModelForSequenceClassification.from_pretrained("microsoft/graphcodebert-base")
     PATH = "./data/" + args.dir_path + "/" + "1_mixed_" + args.model_name + "_BM25L_0608.pt"
 
     model.load_state_dict(torch.load(PATH))
@@ -627,7 +663,7 @@ def inference_model(args):
 
     test_tensor = TensorDataset(test_input_ids, test_attention_masks)
     test_sampler = SequentialSampler(test_tensor)
-    test_dataloader = DataLoader(test_tensor, sampler=test_sampler, batch_size=args.test_batch_size)
+    test_dataloader = DataLoader(test_tensor, sampler=test_sampler, batch_size=1048)
 
     submission = pd.read_csv('./data/sample_submission.csv')
     device = torch.device("cuda")
@@ -677,8 +713,8 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", default=2e-5, type=float, help="The initial learning rate for Adam.")
     parser.add_argument("--eps", default=1e-5, type=float, help="The initial eps.")
     parser.add_argument("--epochs", default=3, type=int, help="Total number of epochs to train.")
-    parser.add_argument("--batch_size", type=int, default=None, help="batch_size")
-    parser.add_argument("--test_batch_size", type=int, default=None, help="test_batch_size")
+    # parser.add_argument("--batch_size", type=int, default=None, help="batch_size")
+    # parser.add_argument("--test_batch_size", type=int, default=None, help="test_batch_size")
 
     parser.add_argument("--no_cuda", default=False, type=bool, help="Say True if you don't want to use cuda.")
     parser.add_argument("--ensemble", default=False, type=bool, help="Ensemble.")
@@ -686,8 +722,8 @@ if __name__ == "__main__":
     parser.add_argument("--mode", default="train", type=str, help="When you train the model.")
     parser.add_argument("--dir_path", default="graphcodebert", type=str, help="Save model path.")
     parser.add_argument("--model_name", default="graphcodebert", type=str, help="Model name.")
-    parser.add_argument("--process_name", default="code_similarity", type=str, help="process_name.")
-    parser.add_argument("--checkpoint_path", default="microsoft/graphcodebert-base", type=str, help="Pre-trained Language Model.")
+    # parser.add_argument("--process_name", default="code_similarity", type=str, help="process_name.")
+    # parser.add_argument("--checkpoint_path", default=""microsoft/graphcodebert-base"", type=str, help="Pre-trained Language Model.")
 
     args = parser.parse_args()
 
@@ -700,4 +736,4 @@ if __name__ == "__main__":
     if args.ensemble == True:
         model_ensemble()
 
-    # CUDA_VISIBLE_DEVICES=0 python code_submission.py --seed 42 --learning_rate 2e-5 --eps 1e-5 --epochs 3 --batch_size 32 --test_batch_size 1048 --save_tensor True --mode train --dir_path graphcodebert --model_name graphcodebert --process_name code_similarity --checkpoint_path microsoft/graphcodebert-base
+    # CUDA_VISIBLE_DEVICES=0 python code_submission.py --seed 42 --learning_rate 2e-5 --eps 1e-5 --epochs 3 --batch_size 32 --test_batch_size 1048 --save_tensor True --mode train --dir_path graphcodebert --model_name graphcodebert --process_name code_similarity --checkpoint_path "microsoft/graphcodebert-base"
