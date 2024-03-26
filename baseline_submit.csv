@@ -1,2 +1,2 @@
 n_estimators,criterion,max_depth,min_samples_split,min_samples_leaf,min_weight_fraction_leaf,max_features,max_leaf_nodes,min_impurity_decrease,bootstrap
-917,entropy,29,41,9,0.010359315089133691,log2,62,0.04505055810791993,True
+230,gini,18,38,20,0.04314084129884324,log2,66,0.00060404316576883,False
