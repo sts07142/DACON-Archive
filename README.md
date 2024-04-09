@@ -82,7 +82,7 @@
 # [상위 13%] CatBoost + StratifiedKFold + Optuna
 
 ## 1. 데이터 처리
-### Income = 0 인 경우
+### 1-a. Income = 0 인 경우
 - Industry_Status : Not in universe
 - Occupation_Status : Unknown
 - Employment_Status : Not Working
@@ -90,7 +90,7 @@
 
 train 데이터 관측 기준, Income 값이 0인 것 확인
 
-### Income 예측이 음수 값인 경우 0으로 변환
+### 1-b. Income 예측이 음수 값인 경우 0으로 변환
 
 후처리 단계에서, Income 예측값 음수인 경우 처리
 
