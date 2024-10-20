@@ -1,0 +1,7 @@
+*.png
+*.jpg
+
+test/*.*
+train/*.*
+upscale_train/*.*
+
